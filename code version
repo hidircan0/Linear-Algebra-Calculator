@@ -1,0 +1,357 @@
+package LinearAlgebra;
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.util.Arrays;
+
+public class LinearAlgebra extends JFrame {
+
+    private JTextField rowFieldA, colFieldA, rowFieldB, colFieldB, scalerField;
+    private JTextArea matrixAreaA, matrixAreaB, resultArea;
+    private JButton transposeButton, determinantButton, subtractButton, scalerMultiplyButton, matrixMultiplyButton, eigenButton, clearButton;
+
+    private int determinant(int[][] matrix, int n) {
+        int det = 0;
+
+        if (n == 1)
+            return matrix[0][0];
+
+        if (n == 2)
+            return (matrix[0][0] * matrix[1][1]) - (matrix[0][1] * matrix[1][0]);
+
+        int[][] temp = new int[n][n]; 
+        int sign = 1;
+
+        for (int f = 0; f < n; f++) {
+            getCofactor(matrix, temp, 0, f, n);
+            det += sign * matrix[0][f] * determinant(temp, n - 1);
+            sign = -sign;
+        }
+        return det;
+    }
+
+    private void getCofactor(int[][] matrix, int[][] temp, int p, int q, int n) {
+        int i = 0, j = 0;
+
+        for (int row = 0; row < n; row++) {
+            for (int col = 0; col < n; col++) {
+                if (row != p && col != q) {
+                    temp[i][j++] = matrix[row][col];
+                    if (j == n - 1) {
+                        j = 0;
+                        i++;
+                    }
+                }
+            }
+        }
+    }
+
+    private int[][] parseMatrix(String text, int rows, int cols) throws NumberFormatException, IllegalArgumentException {
+        String[] elements = text.trim().split("\\s+"); 
+        
+        if (elements.length == 1 && elements[0].isEmpty()) {
+             throw new IllegalArgumentException("Please enter matrix elements.");
+        }
+        
+        if (elements.length != rows * cols) {
+            throw new IllegalArgumentException(
+                String.format("Error: Expected %d elements for a %dx%d matrix, but you entered %d elements.", 
+                              rows * cols, rows, cols, elements.length));
+        }
+        
+        int[][] matrix = new int[rows][cols];
+        for (int i = 0; i < rows * cols; i++) {
+            try {
+                int r = i / cols;
+                int c = i % cols;
+                matrix[r][c] = Integer.parseInt(elements[i]);
+            } catch (NumberFormatException e) {
+                 throw new NumberFormatException("Error: One of the input elements is not a number.");
+            }
+        }
+        return matrix;
+    }
+
+    private String matrixToString(int[][] matrix) {
+        StringBuilder sb = new StringBuilder();
+        for (int[] row : matrix) {
+            for (int element : row) {
+                sb.append(element).append("\t");
+            }
+            sb.append("\n");
+        }
+        return sb.toString();
+    }
+
+    public LinearAlgebra() {
+        super("Advanced Matrix Calculator (Swing)");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new BorderLayout(10, 10)); 
+
+        JPanel inputPanel = new JPanel(new GridLayout(1, 2, 10, 0));
+        
+        inputPanel.add(createMatrixInputPanel("Matrix A (First Matrix)", rowFieldA = new JTextField("3"), colFieldA = new JTextField("3"), matrixAreaA = new JTextArea("1 2 3\n4 5 6\n7 8 9")));
+        
+        JPanel matrixBPanel = createMatrixInputPanel("Matrix B (Second Matrix)", rowFieldB = new JTextField("3"), colFieldB = new JTextField("3"), matrixAreaB = new JTextArea("9 8 7\n6 5 4\n3 2 1"));
+        inputPanel.add(matrixBPanel);
+        
+        matrixBPanel.setVisible(false);
+        rowFieldB.setText("0"); 
+        colFieldB.setText("0"); 
+        
+        add(inputPanel, BorderLayout.NORTH);
+
+        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        
+        transposeButton = new JButton("1. Transpose");
+        determinantButton = new JButton("2. Determinant");
+        subtractButton = new JButton("3. Subtraction");
+        scalerMultiplyButton = new JButton("4. Scalar Multiplication");
+        matrixMultiplyButton = new JButton("5. Matrix Multiplication");
+        eigenButton = new JButton("6. Eigenvalue/Eigenvector (2x2)");
+        clearButton = new JButton("Clear");
+        
+        scalerField = new JTextField("2", 4); 
+        controlPanel.add(new JLabel("Scalar Value (x) :"));
+        controlPanel.add(scalerField);
+
+        controlPanel.add(new JSeparator(SwingConstants.VERTICAL));
+        
+        controlPanel.add(transposeButton);
+        controlPanel.add(determinantButton);
+        controlPanel.add(subtractButton);
+        controlPanel.add(scalerMultiplyButton);
+        controlPanel.add(matrixMultiplyButton);
+        controlPanel.add(eigenButton);
+        controlPanel.add(clearButton);
+
+        add(controlPanel, BorderLayout.CENTER);
+
+        resultArea = new JTextArea("Results will be shown here. Enter elements separated by space or new line.");
+        resultArea.setEditable(false);
+        resultArea.setFont(new Font("Monospaced", Font.PLAIN, 14));
+        
+        add(new JScrollPane(resultArea), BorderLayout.SOUTH);
+
+        
+        ActionListener matrixBVisibilityToggle = e -> {
+            boolean needsB = e.getSource() == subtractButton || e.getSource() == matrixMultiplyButton;
+            matrixBPanel.setVisible(needsB);
+            
+            if (needsB && rowFieldB.getText().equals("0")) {
+                rowFieldB.setText("3");
+                colFieldB.setText("3");
+            }
+            pack(); 
+        };
+        
+        subtractButton.addActionListener(matrixBVisibilityToggle);
+        matrixMultiplyButton.addActionListener(matrixBVisibilityToggle);
+        
+        ActionListener hideBListener = e -> {
+            matrixBPanel.setVisible(false);
+            rowFieldB.setText("0"); 
+            colFieldB.setText("0"); 
+            pack();
+        };
+
+        transposeButton.addActionListener(hideBListener);
+        determinantButton.addActionListener(hideBListener);
+        scalerMultiplyButton.addActionListener(hideBListener);
+        eigenButton.addActionListener(hideBListener);
+        
+        
+        transposeButton.addActionListener(e -> performOperation(1));
+        determinantButton.addActionListener(e -> performOperation(2));
+        subtractButton.addActionListener(e -> performOperation(3));
+        scalerMultiplyButton.addActionListener(e -> performOperation(4));
+        matrixMultiplyButton.addActionListener(e -> performOperation(5));
+        eigenButton.addActionListener(e -> performOperation(6));
+        clearButton.addActionListener(e -> resultArea.setText(""));
+
+        pack(); 
+        setLocationRelativeTo(null); 
+        setVisible(true);
+    }
+    
+    private JPanel createMatrixInputPanel(String title, JTextField rowField, JTextField colField, JTextArea textArea) {
+        JPanel panel = new JPanel(new BorderLayout(5, 5));
+        panel.setBorder(BorderFactory.createTitledBorder(title));
+        
+        JPanel sizePanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        sizePanel.add(new JLabel("Rows (m):"));
+        sizePanel.add(rowField);
+        sizePanel.add(new JLabel("Cols (n):"));
+        sizePanel.add(colField);
+        panel.add(sizePanel, BorderLayout.NORTH);
+
+        textArea.setLineWrap(true);
+        textArea.setWrapStyleWord(true);
+        textArea.setPreferredSize(new Dimension(250, 150));
+        panel.add(new JScrollPane(textArea), BorderLayout.CENTER);
+        
+        return panel;
+    }
+
+    private void performOperation(int choice) {
+        try {
+            int rowsA = Integer.parseInt(rowFieldA.getText());
+            int colsA = Integer.parseInt(colFieldA.getText());
+            int[][] matrixA = parseMatrix(matrixAreaA.getText(), rowsA, colsA);
+            
+            String output = "";
+
+            switch (choice) {
+                case 1: 
+                    output = "--- Transpose ---\n";
+                    int[][] transposeMatrix = new int[colsA][rowsA];
+                    for (int i = 0; i < rowsA; i++) {
+                        for (int j = 0; j < colsA; j++) {
+                            transposeMatrix[j][i] = matrixA[i][j];
+                        }
+                    }
+                    output += matrixToString(transposeMatrix);
+                    break;
+
+                case 2:
+                    output = "--- Determinant ---\n";
+                    if (rowsA != colsA) {
+                        output = "ERROR: Matrix must be square (m=n) to calculate determinant.";
+                    } else {
+                        output += "Det(A) = " + determinant(matrixA, rowsA);
+                    }
+                    break;
+                
+                case 3: 
+                    output = "--- Matrix Subtraction (A - B) ---\n";
+                    
+                    int rowsB = Integer.parseInt(rowFieldB.getText());
+                    int colsB = Integer.parseInt(colFieldB.getText());
+                    int[][] matrixB = parseMatrix(matrixAreaB.getText(), rowsB, colsB);
+                    
+                    if (rowsA != rowsB || colsA != colsB) {
+                        output = "ERROR: Dimensions must be the same for subtraction (m x n).";
+                    } else {
+                        int[][] result = new int[rowsA][colsA];
+                        for (int i = 0; i < rowsA; i++) {
+                            for (int j = 0; j < colsA; j++) {
+                                result[i][j] = matrixA[i][j] - matrixB[i][j];
+                            }
+                        }
+                        output += matrixToString(result);
+                    }
+                    break;
+
+                case 4:
+                    output = "--- Scalar Multiplication ---\n";
+                    int scaler = Integer.parseInt(scalerField.getText());
+                    int[][] scaledMatrix = new int[rowsA][colsA];
+                    for(int i=0; i<rowsA; i++){
+                        for(int j=0; j<colsA; j++){
+                            scaledMatrix[i][j] = matrixA[i][j] * scaler;
+                        }
+                    }
+                    output += "Scalar (x) = " + scaler + "\n" + matrixToString(scaledMatrix);
+                    break;
+                
+                case 5: 
+                    output = "--- Matrix Multiplication (A x B) ---\n";
+                    
+                    int rowsB_mult = Integer.parseInt(rowFieldB.getText());
+                    int colsB_mult = Integer.parseInt(colFieldB.getText());
+                    int[][] matrixB_mult = parseMatrix(matrixAreaB.getText(), rowsB_mult, colsB_mult);
+
+                    if (colsA != rowsB_mult) {
+                        output = "ERROR: Cols of Matrix A (" + colsA + ") must equal Rows of Matrix B (" + rowsB_mult + ") for multiplication.";
+                    } else {
+                        int[][] result = new int[rowsA][colsB_mult];
+                        for (int i = 0; i < rowsA; i++) {
+                            for (int j = 0; j < colsB_mult; j++) {
+                                result[i][j] = 0;
+                                for (int k = 0; k < colsA; k++) {
+                                    result[i][j] += matrixA[i][k] * matrixB_mult[k][j];
+                                }
+                            }
+                        }
+                        output += matrixToString(result);
+                    }
+                    break;
+                    
+                case 6:
+                    output = "--- Eigenvalue and Eigenvector (2x2 Only) ---\n";
+                    if (rowsA != 2 || colsA != 2) {
+                        output = "ERROR: Eigenvalue/Eigenvector calculation is currently implemented for 2x2 matrices only.";
+                        break;
+                    }
+                    
+                    double a = matrixA[0][0];
+                    double b = matrixA[0][1];
+                    double c = matrixA[1][0];
+                    double d = matrixA[1][1];
+
+                    double trace = a + d;
+                    double det = a*d - b*c;
+                    double discriminant = trace*trace - 4*det;
+
+                    if (discriminant < 0) {
+                        output += "Eigenvalues are complex numbers. This program currently handles real eigenvalues only.";
+                        break;
+                    }
+
+                    double lambda1 = (trace + Math.sqrt(discriminant)) / 2;
+                    double lambda2 = (trace - Math.sqrt(discriminant)) / 2;
+
+                    output += String.format("Eigenvalue 1 (λ₁): %.4f\n", lambda1);
+                    output += String.format("Eigenvalue 2 (λ₂): %.4f\n", lambda2);
+                    
+                    output += "\nEigenvectors:\n";
+
+                    String v1 = calculateEigenvector(a, b, c, d, lambda1);
+                    output += String.format("Eigenvector for λ₁: %s\n", v1);
+                    
+                    String v2 = calculateEigenvector(a, b, c, d, lambda2);
+                    output += String.format("Eigenvector for λ₂: %s\n", v2);
+                    
+                    break;
+                default:
+                    output = "ERROR: Invalid operation selection.";
+            }
+
+            resultArea.setText(output);
+
+        } catch (NumberFormatException ex) {
+            resultArea.setText("ERROR: Please enter valid integers for matrix dimensions and elements (and Scalar).");
+        } catch (IllegalArgumentException ex) {
+            resultArea.setText("ERROR: " + ex.getMessage());
+        } catch (Exception ex) {
+            resultArea.setText("An unexpected error occurred: " + ex.getMessage());
+        }
+    }
+    
+    private String calculateEigenvector(double a, double b, double c, double d, double lambda) {
+    	if (b != 0) {
+            double y = (lambda - a) / b;
+            return String.format("[1.0, %.4f]", y);
+        } else if (c != 0) {
+            double x = (lambda - d) / c;
+            return String.format("[%.4f, 1.0]", x);
+        } else if (a == lambda && d == lambda) {
+            if (Math.abs(lambda - (a + d) / 2) < 1e-9) { 
+                return "[1.0, 0.0] or [0.0, 1.0]";
+            }
+        }
+        return "[1.0, 0.0] (Simplified)";
+    }
+
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                new LinearAlgebra();
+            }
+        });
+    }
+}
